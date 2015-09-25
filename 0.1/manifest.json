@@ -1,0 +1,14 @@
+{
+   "background": {
+      "scripts": [
+        "extension/underscore-min.js",
+        "extension/voicecode_browser_pipe.js"
+       ]
+   },
+   "description": "Facilitate voicecode scripted access to chrome's API.",
+   "manifest_version": 2,
+   "name": "voicecode",
+   "permissions": [ "tabs", "bookmarks", "\u003Call_urls>" ],
+   "update_url": "http://clients2.google.com/service/update2/crx",
+   "version": "0.1"
+}
