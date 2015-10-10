@@ -1,14 +1,34 @@
 {
-   "background": {
-      "scripts": [
-        "extension/underscore-min.js",
-        "extension/voicecode_browser_pipe.js"
-       ]
-   },
-   "description": "Facilitate voicecode scripted access to chrome's API.",
-   "manifest_version": 2,
-   "name": "voicecode",
-   "permissions": [ "tabs", "bookmarks", "\u003Call_urls>" ],
-   "update_url": "http://clients2.google.com/service/update2/crx",
-   "version": "0.1"
+  "background": {
+    "scripts": [
+      "lib/vendor/underscore-min.js",
+      "background/webSocketRequestHandler.js",
+      "background/webSocketWrapper.js",
+      "background/background.js"
+    ]
+  },
+  "content_scripts": [{
+    "css": [
+      "content_scripts/style.css"
+    ],
+    "js": [
+      "lib/vendor/jquery-1.11.3.min.js",
+      "lib/vendor/underscore-min.js",
+      "lib/vendor/rect.js",
+      "lib/vendor/dom_utils.js",
+      "lib/vendor/keypress-2.1.3.min.js", 
+      "content_scripts/freeTextBrowsing.js",
+      "content_scripts/voicecode_frontend.js"
+    ],
+    "matches": ["<all_urls>"],
+    "all_frames": true,
+    "run_at": "document_start"
+  }],
+  "web_accessible_resources": [],
+  "description": "Facilitate voicecode scripted access to chrome's API.",
+  "manifest_version": 2,
+  "name": "voicecode",
+  "permissions": ["tabs", "bookmarks", "<all_urls>", "storage"],
+  "update_url": "http://clients2.google.com/service/update2/crx",
+  "version": "0.1"
 }
