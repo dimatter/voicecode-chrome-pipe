@@ -21,23 +21,24 @@ class KeyboardController
     @listener = new window.keypress.Listener
 
   registerCombo: ->
-    alphabet = 'qwertyuiopasdfghjklzxcvbnm123456789'.split ' '
+    alphabet = 'qwertyuiopasdfghjklzxcvbnm123456789'.split('')
     modifiers = ['space', 'escape']
 
     keysOfInterest = alphabet.concat modifiers
-    combo =
-      "keys" : keysOfInterest
-      "on_keydown" : @onKeyDownHandler
-      "on_keyup" : @onKeyUpHandler
-      "on_release" : @onReleaseHandler
-      "this" : @
-      "prevent_default" : true
-      "prevent_repeat" : true
-      "is_unordered" : true
-      "is_counting" : false
-      "is_exclusive" : false
-      "is_solitary" : false
-      "is_sequence" : false
+    _.each keysOfInterest, (key) ->
+      combo =
+        "keys" : keysOfInterest
+        "on_keydown" : @onKeyDownHandler
+        "on_keyup" : @onKeyUpHandler
+        "on_release" : @onReleaseHandler
+        "this" : @
+        "prevent_default" : true
+        "prevent_repeat" : true
+        "is_unordered" : true
+        "is_counting" : false
+        "is_exclusive" : false
+        "is_solitary" : false
+        "is_sequence" : false
     @listener.register_combo combo
 
   toggleAllMarkers: ->

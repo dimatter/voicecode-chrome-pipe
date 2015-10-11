@@ -34,24 +34,27 @@
     }
 
     KeyboardController.prototype.registerCombo = function() {
-      var alphabet, combo, keysOfInterest, modifiers;
-      alphabet = 'qwertyuiopasdfghjklzxcvbnm123456789'.split(' ');
+      var alphabet, keysOfInterest, modifiers;
+      alphabet = 'qwertyuiopasdfghjklzxcvbnm123456789'.split('');
       modifiers = ['space', 'escape'];
       keysOfInterest = alphabet.concat(modifiers);
-      combo = {
-        "keys": keysOfInterest,
-        "on_keydown": this.onKeyDownHandler,
-        "on_keyup": this.onKeyUpHandler,
-        "on_release": this.onReleaseHandler,
-        "this": this,
-        "prevent_default": true,
-        "prevent_repeat": true,
-        "is_unordered": true,
-        "is_counting": false,
-        "is_exclusive": false,
-        "is_solitary": false,
-        "is_sequence": false
-      };
+      _.each(keysOfInterest, function(key) {
+        var combo;
+        return combo = {
+          "keys": keysOfInterest,
+          "on_keydown": this.onKeyDownHandler,
+          "on_keyup": this.onKeyUpHandler,
+          "on_release": this.onReleaseHandler,
+          "this": this,
+          "prevent_default": true,
+          "prevent_repeat": true,
+          "is_unordered": true,
+          "is_counting": false,
+          "is_exclusive": false,
+          "is_solitary": false,
+          "is_sequence": false
+        };
+      });
       return this.listener.register_combo(combo);
     };
 
