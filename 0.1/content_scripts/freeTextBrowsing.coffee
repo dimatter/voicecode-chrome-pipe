@@ -1,33 +1,39 @@
 # activation modes
-OPEN_IN_CURRENT_TAB = true
-OPEN_A_NEW_TAB = true
-OPEN_IN_NEW_WINDOW = true
-OPEN_INCOGNITO = true
+OPEN_IN_CURRENT_TAB = {}
+OPEN_IN_NEW_WINDOW = {}
+OPEN_INCOGNITO = {}
 # viewport modes
-CLEAN = true
-ALWAYS_SHOW_TEXTLESS_HINTS = true
+CLEAN = {}
+ALWAYS_SHOW_TEXTLESS_HINTS = {}
 # matching modes
-BESTMATCH = true
+BESTMATCH = {}
 # state
-NORMAL = true
-MULTIPLE_MATCHES = true
+NORMAL = {}
+MULTIPLE_MATCHES = {}
+SHOWING_ALL_MARKERS = {}
 
 class KeyboardController
   instance = null
+  previousEvent = null
+  keypressQueue = ''
+  _onCharacterKeypress = null
+  _onIntegerKeypress = null
+  integerKeypressQueue  = ''
+  characterKeypressQueue = ''
 
   constructor: ->
     return @ if instance?
-    instance = @
     @listener = new window.keypress.Listener
+    instance = @
 
   registerCombo: ->
-    alphabet = 'qwertyuiopasdfghjklzxcvbnm123456789'.split('')
-    modifiers = ['space', 'escape']
+    alphabet = 'qwertyuiopasdfghjklzxcvbnm1234567890-/\\_!*[]'.split('')
+    modifiers = ['space', 'escape', 'enter']
 
     keysOfInterest = alphabet.concat modifiers
-    _.each keysOfInterest, (key) ->
+    _.each keysOfInterest, (key) =>
       combo =
-        "keys" : keysOfInterest
+        "keys" : key
         "on_keydown" : @onKeyDownHandler
         "on_keyup" : @onKeyUpHandler
         "on_release" : @onReleaseHandler
@@ -39,41 +45,66 @@ class KeyboardController
         "is_exclusive" : false
         "is_solitary" : false
         "is_sequence" : false
-    @listener.register_combo combo
+      @listener.register_combo combo
 
-  toggleAllMarkers: ->
-    debugger
-    console.error 'EPIC WIN'
+  onIntegerKeypress: (key) ->
+    integerKeypressQueue += key
+    _onIntegerKeypress ?= _.debounce ->
+      voiceCodeForeground.tabMessage 'invokeBound',
+        namespace: 'freeTextBrowsing'
+        method: 'handleHintKeypress'
+        argumentsObject: {keys: integerKeypressQueue}
+      integerKeypressQueue = ''
+      _onIntegerKeypress = null
+    , 100
+    do _onIntegerKeypress
 
-  dispatchKeypress: do ->
-    keypressQueue = ''
-    debounced = null
-    (keys) ->
-      keypressQueue += keys
-      debounced ?= _.debounce ->
-        voiceCodeForeground.backendMessage 'FreeTextBrowsing',
-          callbackName: 'eventBrowserKeypress'
-          callbackArguments: {keys: keypressQueue.toLowerCase()}
-        keypressQueue = ''
-        debounced = null
-      , 100
-      do debounced
+  onCharacterKeypress: (key) ->
+    characterKeypressQueue += key
+    _onCharacterKeypress ?= _.debounce ->
+      voiceCodeForeground.backendMessage 'FreeTextBrowsing',
+        callbackName: 'eventBrowserKeypress'
+        callbackArguments: {keys: characterKeypressQueue.toLowerCase()}
+      characterKeypressQueue = ''
+      _onCharacterKeypress = null
+    , 100
+    do _onCharacterKeypress
 
   onKeyDownHandler: (event) ->
     return true unless freeTextBrowsing.isActive
     # console.log 'onKeyDown', event
+
   onKeyUpHandler: (event) ->
     return true unless freeTextBrowsing.isActive
-    # console.warn event
+    # console.error event.keyCode
+    if event.keyCode in [48..57]
+      key = String.fromCharCode event.keyCode
+      console.error key
+      @onIntegerKeypress key
+      return false
+
     if event.keyCode is 27 # escape key pressed
-      if freeTextBrowsing.state is MULTIPLE_MATCHES
-        freeTextBrowsing.restoreViewportState()
-        freeTextBrowsing.clearRemoteSearchQuery()
-        freeTextBrowsing.state = NORMAL
-      else
-        freeTextBrowsing.deactivate()
+      voiceCodeForeground.tabMessage 'invokeBound',
+        namespace: 'keyboardController'
+        method: 'onEscapeKey'
+
+      previousEvent = event
       return true
-    @dispatchKeypress String.fromCharCode event.keyCode
+
+    unless event.keyCode is 32 and previousEvent?.keyCode in [48..57] # exclude space that follows an integer
+      @onCharacterKeypress String.fromCharCode event.keyCode
+      previousEvent = event
+    false
+
+  onEscapeKey: ->
+    if freeTextBrowsing.state in [MULTIPLE_MATCHES, SHOWING_ALL_MARKERS]
+      freeTextBrowsing.restoreViewportState()
+      freeTextBrowsing.changeViewportState NORMAL, false
+      freeTextBrowsing.clearRemoteSearchQuery()
+    else
+      freeTextBrowsing.deactivate()
+    previousEvent = event
+
   onReleaseHandler: (event) ->
     return true unless freeTextBrowsing.isActive
     # console.log 'onRelease', event
@@ -89,24 +120,30 @@ class FreeTextBrowsing
 
   constructor: ->
     return @ if instance?
-    instance = @
     @isActive = false
     @matchingMode = BESTMATCH
     @state = NORMAL
-    @keyboardController = new window.KeyboardController
-    @keyboardController.registerCombo()
     @viewportMode = CLEAN
-    unless Settings.get 'ALWAYS_SHOW_TEXTLESS_HINTS' is false
+    if Settings.get 'ALWAYS_SHOW_TEXTLESS_HINTS'
       @viewportMode = ALWAYS_SHOW_TEXTLESS_HINTS
+    instance = @
 
   deactivate: ->
     @clearRemoteSearchQuery()
     @hideMarkers()
     @isActive = false
 
+  handleHintKeypress: ({keys}) ->
+    possibleCandidates = _.filter @linkList, (link, id) ->
+      ("#{link.hint}").indexOf(keys) is 0
+    if possibleCandidates.length is 1
+      @activateLink possibleCandidates.pop()
+      return
+    @changeViewportState MULTIPLE_MATCHES unless @state is MULTIPLE_MATCHES
+    @showMarkers possibleCandidates
+
   activate: ->
     return if @isActive
-
     @createMarkerContainer()
     @processViewport()
     console.debug 'linkList: ', @linkList
@@ -268,6 +305,9 @@ class FreeTextBrowsing
 
     # Check for attributes that make an element clickable regardless of its tagName.
     if (element.hasAttribute("onclick") or
+        element.hasAttribute("mouseup") or
+        element.hasAttribute("mousedown") or
+        element.hasAttribute("dblclick") or
         element.getAttribute("role")?.toLowerCase() in ["button", "link"] or
         element.getAttribute("class")?.toLowerCase().indexOf("button") >= 0 or
         element.getAttribute("contentEditable")?.toLowerCase() in ["", "contentEditable", "true"])
@@ -325,13 +365,16 @@ class FreeTextBrowsing
         debounced = _.debounce funky, 10
       debounced ({hints}) ->
         _.each hints, (hint) ->
+          return unless allCallbacks?
           (allCallbacks.shift())(hint)
       , allCallbacks.length
 
+  # WELCOME TO HELL
   reserveLinkHint: do ->
     allCallbacks = []
-    reservations = []
+    _reservations = []
     debounced = null
+    clearReservations = null
     funky = (callback, reservations) ->
       voiceCodeForeground.backgroundMessage 'invokeBound',
         namespace: 'HintDispenser'
@@ -341,18 +384,25 @@ class FreeTextBrowsing
       debounced = null
     (id, desiredInteger, callback) ->
       allCallbacks.push callback
-      reservations.push {id, desiredInteger}
+      _reservations.push {id, desiredInteger}
       unless debounced?
         debounced = _.debounce funky, 10
       debounced ({reservations}) ->
         _.each reservations, ->
+          return unless allCallbacks?
           (allCallbacks.pop())(reservations)
-      , reservations
+          clearReservations ?= _.after reservations.length, ->
+            _reservations = []
+            clearReservations = null
+          clearReservations()
+      , _reservations
 
   resetHintDispenser: ->
     voiceCodeForeground.backgroundMessage 'invokeBound',
       namespace: 'HintDispenser'
       method: 'reset'
+    , ->
+      # console.warn 'resetHintDispenser'
 
   getLinkText: (element) ->
     linkText = ''
@@ -451,7 +501,9 @@ class FreeTextBrowsing
     marker.addClass "voicecodeReset internalVoiceCodeHintMarker voicecodeHintMarker"
     marker.attr 'data-vc-marker-for', link.id
     child = $('<span>').addClass 'voicecodeReset voicecodeHint'
-    child.text link.hint+': '+link.text
+    childText = link.hint
+    childText += ": #{link.text}" unless _.isEmpty link.text
+    child.text childText
     child.on 'click', ->
       id = $(@).parent().attr 'data-vc-marker-for'
       console.debug $("\##{id}")
@@ -459,6 +511,7 @@ class FreeTextBrowsing
     marker.append child
     marker.css 'left', link.rect.left + window.scrollX + "px"
     marker.css 'top', link.rect.top  + window.scrollY  + "px"
+    marker.css 'with', link.rect.with # TODO: fix(?)
     marker.hide()
     marker
 
@@ -534,16 +587,15 @@ class FreeTextBrowsing
         # return unless mutation.removedNodes.length
 
 
-    observer.observe document,
-      attributes: true
-      childList: true
-      characterData: true
-      subtree: true
+    # observer.observe document,
+    #   attributes: true
+    #   childList: true
+    #   characterData: true
+    #   subtree: true
   #
   # When only one link hint remains, this function activates it in the appropriate way.
   #
-  activateLink: (linkId) ->
-    link = @linkList[linkId]
+  activateLink: (link) ->
     if (DomUtilities.isSelectable(link.element))
       DomUtilities.simulateSelect(link.element)
     else
@@ -554,38 +606,55 @@ class FreeTextBrowsing
       DomUtilities.simulateClick link.element
 
   updateMatchedLinks: ({matchedLinks}) ->
+    return unless @isActive? and @isActive
     console.dir matchedLinks
     # TODO: filter out links that belong to other frames
     if _.isEmpty matchedLinks
-      $('body').shake()
+      $('a [href="/"]').shake()
       @clearRemoteSearchQuery()
       console.error 'NOTHING FOUND!'
       return
     _.each matchedLinks, (links, measure) =>
       opacity = Math.round(measure*1) / 10
       if @matchingMode is BESTMATCH and links.length is 1
-        @activateLink links[0].id
+        id = links.pop().id
+        return unless @linkList[id]?
+        @activateLink @linkList[id]
         console.warn voiceCodeForeground.getIdentity()
         @clearRemoteSearchQuery()
         return
       else
-        @state = MULTIPLE_MATCHES
-        @captureViewportState().hide()
+        @changeViewportState MULTIPLE_MATCHES
         @showMarkers links
 
+  toggleAllMarkers: ->
+    if @state is SHOWING_ALL_MARKERS
+      @restoreViewportState()
+      @changeViewportState NORMAL, false
+      return
+    @changeViewportState SHOWING_ALL_MARKERS
+    @showMarkers @linkList
+
+  changeViewportState: (state, preservePrevious = true) ->
+    return unless state?
+    @captureViewportState().hide() if preservePrevious
+    @state = state
 
   getPreviousViewportState: ->
-    @capturedViewportStates.pop()
+    if @capturedViewportStates.length
+      return @capturedViewportStates.pop()
+    return null
 
   captureViewportState: ->
+    @capturedViewportStates ?= []
     @capturedViewportStates.push $('#voicecodeMarkerContainer').find('div.voicecodeHintMarker:visible')
+    @capturedViewportStates[..].pop()
 
   restoreViewportState: ->
     previousViewportState = @getPreviousViewportState()
     if previousViewportState?
       $('#voicecodeMarkerContainer').find('div.voicecodeHintMarker:visible').hide()
       previousViewportState.show()
-      @coapturedViewportState = null
 
 @FreeTextBrowsing = FreeTextBrowsing
 @KeyboardController = KeyboardController

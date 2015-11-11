@@ -15,7 +15,9 @@
       if (instance != null) {
         return instance;
       }
+      this.debug = true;
       instance = this;
+      this;
     }
 
     VoiceCodeForeground.prototype.shouldActivate = function() {
@@ -26,16 +28,22 @@
     };
 
     VoiceCodeForeground.prototype.loadComplete = function() {
+      if (!this.shouldActivate()) {
+        return;
+      }
       console.warn('loadComplete');
-      this.freeTextBrowsing = new FreeTextBrowsing;
+      window.keyboardController = new KeyboardController;
+      window.keyboardController.registerCombo();
       freeTextBrowsing.activate();
-      voiceCodeForeground.installListener(window, 'resize', _.bind(freeTextBrowsing.reset, freeTextBrowsing, 400));
-      return voiceCodeForeground.installListener(window, 'scroll', _.bind(freeTextBrowsing.reset, freeTextBrowsing, 400));
+      this.installListener(window, 'resize', _.bind(freeTextBrowsing.reset, freeTextBrowsing, 400));
+      return this.installListener(window, 'scroll', _.bind(freeTextBrowsing.reset, freeTextBrowsing, 400));
     };
 
     VoiceCodeForeground.prototype.urlChanged = function() {
-      console.warn('urlChanged');
-      return freeTextBrowsing.reset();
+      if (this.debug) {
+        console.warn('urlChanged');
+      }
+      return typeof freeTextBrowsing !== "undefined" && freeTextBrowsing !== null ? freeTextBrowsing.reset() : void 0;
     };
 
     VoiceCodeForeground.prototype.installListener = function(element, event, callback) {
@@ -55,7 +63,9 @@
           type: type,
           parameters: parameters
         };
-        console.debug('>>>>', payload);
+        if (this.debug) {
+          console.debug('>>>>', payload);
+        }
         return chrome.runtime.sendMessage(payload, function(response) {
           if (callback == null) {
             return false;
@@ -63,6 +73,10 @@
           return callback.call(this, response);
         });
       })(callback);
+    };
+
+    VoiceCodeForeground.prototype.tabMessage = function() {
+      return _.partial(this.message, 'tab').apply(window, arguments);
     };
 
     VoiceCodeForeground.prototype.backendMessage = function() {
@@ -74,7 +88,9 @@
     };
 
     VoiceCodeForeground.prototype.log = function() {
-      return console.log.apply(console, arguments);
+      if (this.debug) {
+        return console.log.apply(console, arguments);
+      }
     };
 
     VoiceCodeForeground.prototype.getIdentity = function() {
@@ -101,7 +117,7 @@
 
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     var _sendResponse, argumentsObject, funky, method, namespace, type;
-    console.warn('onMessage', request);
+    console.warn('onMessage', voiceCodeForeground.getIdentity(), request);
     _sendResponse = sendResponse;
     type = request.type, namespace = request.namespace, method = request.method, argumentsObject = request.argumentsObject;
     funky = window[namespace][method];
@@ -121,6 +137,10 @@
   this.voiceCodeForeground = new VoiceCodeForeground;
 
   if (voiceCodeForeground.shouldActivate()) {
+    voiceCodeForeground.installListener(window, 'click', function(event) {
+      freeTextBrowsing.reset();
+      return true;
+    });
     voiceCodeForeground.installListener(window, 'focus', function(event) {
       if (event.target === window) {
         voiceCodeForeground.backendMessage('domEvent', {

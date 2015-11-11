@@ -16,9 +16,10 @@
       "lib/vendor/underscore-min.js",
       "lib/vendor/rect.js",
       "lib/vendor/dom_utils.js",
-      "lib/vendor/keypress-2.1.3.min.js", 
+      "lib/vendor/keypress-2.1.3.min.js",
       "content_scripts/freeTextBrowsing.js",
-      "content_scripts/voicecode_frontend.js"
+      "content_scripts/voicecode_frontend.js",
+      "content_scripts/selection.js"
     ],
     "matches": ["<all_urls>"],
     "all_frames": true,

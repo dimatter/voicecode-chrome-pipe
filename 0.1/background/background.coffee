@@ -61,14 +61,14 @@ class HintDispenser
 chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) =>
   if changeInfo.url?
     message =
-      type: 'invoke'
+      type: 'invokeBound'
       namespace: 'voiceCodeForeground'
       method: 'urlChanged'
     chrome.tabs.sendMessage tabId, message
 
   if changeInfo.status is 'complete'
     message =
-      type: 'invoke'
+      type: 'invokeBound'
       namespace: 'voiceCodeForeground'
       method: 'loadComplete'
     chrome.tabs.sendMessage tabId, message
@@ -80,17 +80,26 @@ chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) =>
   #     parameters:
   #       callbackName: 'clearSearchQuery'
   #       callbackArguments: {tabId}
+throttledMethods =
+  'clearSearchQuery'
+
 chrome.runtime.onMessage.addListener (request, sender, sendResponse) =>
   # console.group 'onMessage @ background'
   console.debug '<', request, sender
-  # console.andGroup()
   senderInfo =
     frameId: sender.frameId
     tabId: sender.tab.id
     windowId: sender.tab.windowId
 
   switch request.destination
+    when 'tab'
+      {tabId = null} = request.parameters
+      tabId ?= senderInfo.tabId
+      request.parameters.argumentsObject ?= {}
+      chrome.tabs.sendMessage tabId, _.extend request.parameters, {type: request.type}
+      # TODO: implement callback?
     when 'backend'
+      return false if method in throttledMethods and parseInt(frameId) isnt 0
       request.parameters.callbackArguments ?= {}
       request.parameters.callbackArguments = _.extend request.parameters.callbackArguments, senderInfo
       @socket.send

@@ -4,22 +4,28 @@ class VoiceCodeForeground
   tabId = null
   constructor: ->
     return instance if instance?
+    @debug = true
     instance = @
+    @
 
   shouldActivate: ->
     return false if window.innerWidth < 3 or window.innerHeight < 3
     return true
 
   loadComplete: ->
+    return unless @shouldActivate()
     console.warn 'loadComplete'
-    @freeTextBrowsing = new FreeTextBrowsing
+    # window.freeTextBrowsing = new FreeTextBrowsing
+    window.keyboardController = new KeyboardController
+    window.keyboardController.registerCombo()
+
     freeTextBrowsing.activate()
-    voiceCodeForeground.installListener window, 'resize', _.bind freeTextBrowsing.reset, freeTextBrowsing, 400
-    voiceCodeForeground.installListener window, 'scroll', _.bind freeTextBrowsing.reset, freeTextBrowsing, 400
+    @installListener window, 'resize', _.bind freeTextBrowsing.reset, freeTextBrowsing, 400
+    @installListener window, 'scroll', _.bind freeTextBrowsing.reset, freeTextBrowsing, 400
 
   urlChanged: ->
-    console.warn 'urlChanged'
-    freeTextBrowsing.reset()
+    console.warn 'urlChanged' if @debug
+    freeTextBrowsing?.reset()
 
   installListener: (element, event, callback) ->
     element.addEventListener(event, (eventObject) ->
@@ -32,17 +38,20 @@ class VoiceCodeForeground
         destination: destination
         type: type
         parameters: parameters
-      console.debug '>>>>', payload
+      console.debug '>>>>', payload if @debug
       chrome.runtime.sendMessage payload, (response) ->
         return false unless callback?
         callback.call @, response
+
+  tabMessage: -> _.partial(@message, 'tab').apply window, arguments
 
   backendMessage: -> _.partial(@message, 'backend').apply window, arguments
 
   backgroundMessage: -> _.partial(@message, 'background').apply window, arguments
 
   log: ->
-    console.log.apply console, arguments
+    if @debug
+      console.log.apply console, arguments
 
   getIdentity: ->
     {frameId, tabId}
@@ -135,7 +144,7 @@ class VoiceCodeForeground
   #   console.log vc.tree
   #
 chrome.runtime.onMessage.addListener (request, sender, sendResponse) ->
-  console.warn 'onMessage', request
+  console.warn 'onMessage', voiceCodeForeground.getIdentity(), request
   _sendResponse = sendResponse
   {type, namespace, method, argumentsObject} = request
   funky = window[namespace][method]
@@ -151,6 +160,9 @@ chrome.runtime.onMessage.addListener (request, sender, sendResponse) ->
 
 @voiceCodeForeground = new VoiceCodeForeground
 if voiceCodeForeground.shouldActivate()
+  voiceCodeForeground.installListener window, 'click', (event) ->
+    freeTextBrowsing.reset()
+    true
   voiceCodeForeground.installListener window, 'focus', (event) ->
     if event.target is window
       voiceCodeForeground.backendMessage('domEvent', {event: event.type, target: 'window'}, voiceCodeForeground.log)
