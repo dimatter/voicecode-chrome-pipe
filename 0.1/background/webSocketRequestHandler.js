@@ -43,25 +43,27 @@
             })(this));
           case 'chromeApi':
             namespace = parameters.namespace, method = parameters.method, argumentList = parameters.argumentList, callbackName = parameters.callbackName, callbackArguments = parameters.callbackArguments;
-            argumentList.push((function(_this) {
-              return function() {
-                var _callbackArguments;
-                if ((callbackArguments != null) && callbackArguments.length) {
-                  _callbackArguments = _.object(callbackArguments, _.toArray(arguments));
-                } else {
-                  _callbackArguments = _.toArray(arguments);
-                }
-                return _this.socket.send({
-                  type: 'executionCallback',
-                  parameters: {
-                    namespace: namespace,
-                    method: method,
-                    callbackName: callbackName,
-                    callbackArguments: _callbackArguments
+            if (callbackName != null) {
+              argumentList.push((function(_this) {
+                return function() {
+                  var _callbackArguments;
+                  if ((callbackArguments != null) && callbackArguments.length) {
+                    _callbackArguments = _.object(callbackArguments, _.toArray(arguments));
+                  } else {
+                    _callbackArguments = _.toArray(arguments);
                   }
-                });
-              };
-            })(this));
+                  return _this.socket.send({
+                    type: 'executionCallback',
+                    parameters: {
+                      namespace: namespace,
+                      method: method,
+                      callbackName: callbackName,
+                      callbackArguments: _callbackArguments
+                    }
+                  });
+                };
+              })(this));
+            }
             return chrome[namespace][method].apply(this, argumentList);
           case 'eventListener':
             namespace = parameters.namespace, method = parameters.method, callbackName = parameters.callbackName, callbackArguments = parameters.callbackArguments;

@@ -31,19 +31,13 @@
       if (!this.shouldActivate()) {
         return;
       }
-      console.warn('loadComplete');
-      window.keyboardController = new KeyboardController;
-      window.keyboardController.registerCombo();
-      freeTextBrowsing.activate();
-      this.installListener(window, 'resize', _.bind(freeTextBrowsing.reset, freeTextBrowsing, 400));
-      return this.installListener(window, 'scroll', _.bind(freeTextBrowsing.reset, freeTextBrowsing, 400));
+      return console.warn('loadComplete');
     };
 
     VoiceCodeForeground.prototype.urlChanged = function() {
       if (this.debug) {
-        console.warn('urlChanged');
+        return console.warn('urlChanged');
       }
-      return typeof freeTextBrowsing !== "undefined" && freeTextBrowsing !== null ? freeTextBrowsing.reset() : void 0;
     };
 
     VoiceCodeForeground.prototype.installListener = function(element, event, callback) {
@@ -64,7 +58,7 @@
           parameters: parameters
         };
         if (this.debug) {
-          console.debug('>>>>', payload);
+          console.debug('outgoing >>>>', payload);
         }
         return chrome.runtime.sendMessage(payload, function(response) {
           if (callback == null) {
@@ -138,7 +132,6 @@
 
   if (voiceCodeForeground.shouldActivate()) {
     voiceCodeForeground.installListener(window, 'click', function(event) {
-      freeTextBrowsing.reset();
       return true;
     });
     voiceCodeForeground.installListener(window, 'focus', function(event) {
@@ -168,9 +161,9 @@
           eventName = ref[i];
           results.push(voiceCodeForeground.installListener($(this)[0], eventName, function(event) {
             if (event.type === 'focus') {
-              freeTextBrowsing.deactivate();
+
             } else {
-              freeTextBrowsing.activate();
+
             }
             voiceCodeForeground.backendMessage('domEvent', {
               event: event.type,

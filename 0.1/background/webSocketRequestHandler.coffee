@@ -28,15 +28,16 @@ class WebSocketRequestHandler
 
         when 'chromeApi'
           {namespace, method, argumentList, callbackName, callbackArguments} = parameters
-          argumentList.push () =>
-            if callbackArguments? and callbackArguments.length
-              _callbackArguments = _.object(callbackArguments, _.toArray arguments)
-            else
-              _callbackArguments = _.toArray arguments
+          if callbackName?
+            argumentList.push () =>
+              if callbackArguments? and callbackArguments.length
+                _callbackArguments = _.object(callbackArguments, _.toArray arguments)
+              else
+                _callbackArguments = _.toArray arguments
 
-            @socket.send
-              type: 'executionCallback'
-              parameters: {namespace, method, callbackName, callbackArguments: _callbackArguments}
+              @socket.send
+                type: 'executionCallback'
+                parameters: {namespace, method, callbackName, callbackArguments: _callbackArguments}
           chrome[namespace][method].apply @, argumentList
 
         when 'eventListener'
